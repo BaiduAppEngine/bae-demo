@@ -1,0 +1,49 @@
+﻿#云存储文件夹批量上传工具
+
+####注意事项
+1. 本工具使用过程中，请勿挪动目录内文件，包括删除，新建（启动脚本后新放入的文件将不会进行上传）等等
+
+####使用方式
+1. 本工具使用shell运行多个php脚本的方式进行并行上传
+
+2. 配置：
+      a. 线程数可在 upload.sh中进行配置，默认为16个线程
+      b. 请将您的bucket、ak、sk、upload_dir等配置配在conf.php中，该文件中有详细的配置项说明
+      c. 在check.sh 和 upload.sh中 配置php的bin目录，配置项为 php_path
+
+3. 配置完成，启动上传脚本
+     sh upload.sh   
+     a. 备份上次的日志
+     b. 日志输出在./log目录中，以 'upload_log_' 开头以线程序号结尾的文件中
+     
+4. 上传结束后，对日志进行分析和汇总
+     a. 如何判断每个php线程是否执行结束
+        grep 'Result Summary' ./log/upload_log* | wc -l   结果是否为线程数
+        ps aux | grep batch_upload_dir 查看当前还有哪个php线程仍在执行
+     b. 当确认所有线程完成执行后，使用check脚本检查文件是否上传成功并汇总上传结果
+         sh check.sh    汇总日志会输出到log目录中，文件为check_log
+     
+5. 异常处理
+     a. 某一个上传线程意外结束，如何处理？
+        可以通过手动重新启动该线程进行续传，假设$i号php线程断掉了
+        1) 查看该线程upload_log_*中最后一个处理的文件的序号，将序号填写在conf.php的seek_object_id变量中
+        2) 运行 php -n batch_upload_dir.php $thread_num $i >> ./log/upload_log_$i
+
+####日志
+1. 每个php子线程会将该线程上传的结果打在各自独立的日志文件中，且会在文件末位输出该线程执行结果的汇总信息
+      a. 日志存储在log中
+      b. 每次运行upload.sh，会将上次运行的结果备份log/bak中
+2. check.sh，读取每个子线程的日志，并汇总上传结果
+
+
+####Q&A
+1. Q: 为什么每个线程的日志中会跳过很多文件？
+   A: 因为batch_upload_dir.php中pre_filter()可以在上传文件前对object进行过滤，而这里的过滤设计为将文件均匀分布到各个线程中进行上传，故每个线程都会跳过一些文件
+   
+2. Q: 我想在发文件前和发文件后，定制化一些操作，如何进行？
+   A: for example:上传文件前检查object名，并增加一些Http Header; 上传文件后，检查object是否上传成功。
+                 请在batch_upload_dir.php中pre_filter和post_filter定制化你们的操作。
+                 注意，这两个函数每次执行只对当前object生效。
+      
+3. Q: 关于批量上传工具，我还有问题。。。
+   A： 请联系 bcs-api@baidu.com

@@ -1,0 +1,6 @@
+MySQL-python
+pymongo
+redis
+bae_image
+bae_memcache
+baelog
